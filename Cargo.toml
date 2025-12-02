@@ -1,0 +1,20 @@
+[package]
+name = "celestia-adapter-evaluator"
+version = "0.1.0"
+edition = "2024"
+license = "Sovereign Permissionless Commercial License"
+authors = ["Sovereign Labs <info@sovereign.xyz>"]
+homepage = "https://www.sovereign.xyz"
+publish = false
+repository = "https://github.com/sovereign-labs/sovereign-sdk"
+
+[dependencies]
+anyhow = "1"
+rand = "0.8"
+clap = { version = "4.5", features = ["derive"] }
+hex = "0.4"
+tokio = { version = "1.48", features = ["full"] }
+tracing = { version = "0.1.43" }
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
+
+sov-celestia-adapter = { git = "https://github.com/Sovereign-Labs/sovereign-sdk.git", branch = "dev", features = ["native"] }
