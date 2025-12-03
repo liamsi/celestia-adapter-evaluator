@@ -20,6 +20,9 @@ struct Args {
     rpc_endpoint: String,
 
     #[arg(long)]
+    rpc_token: Option<String>,
+
+    #[arg(long)]
     grpc_endpoint: String,
 
     #[arg(long)]
@@ -87,6 +90,7 @@ async fn main() {
 
     let mut celestia_config = CelestiaConfig::minimal(args.rpc_endpoint)
         .with_submission(args.grpc_endpoint, args.signer_private_key);
+    celestia_config.rpc_auth_token = args.rpc_token;
     celestia_config.grpc_auth_token = args.grpc_token;
 
     let batch_namespace =
