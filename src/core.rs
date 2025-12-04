@@ -115,13 +115,9 @@ pub async fn run_stats_collector(
                     "Submission succeeded"
                 );
             }
-            Err(e) => {
+            Err(error) => {
                 stats.error_count += 1;
-                tracing::info!(
-                    error = %e,
-                    total = stats.error_count,
-                    "Submission failed",
-                );
+                tracing::info!(?error, total = stats.error_count, "Submission failed");
             }
         }
     }

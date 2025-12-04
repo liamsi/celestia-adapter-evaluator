@@ -92,6 +92,10 @@ async fn main() {
         .with_submission(args.grpc_endpoint, args.signer_private_key);
     celestia_config.rpc_auth_token = args.rpc_token;
     celestia_config.grpc_auth_token = args.grpc_token;
+    // Reduce backoff retries to fail faster
+    celestia_config.backoff_max_times = 3;
+    celestia_config.backoff_min_delay_ms = 1_000;
+    celestia_config.backoff_max_delay_ms = 4_000;
 
     let batch_namespace =
         sov_celestia_adapter::types::Namespace::new_v0(args.namespace.as_bytes()).unwrap();
