@@ -138,5 +138,16 @@ async fn main() {
     let throughput_kib_s = stats.successful_bytes as f64 / start.elapsed().as_secs_f64() / 1024.0;
     tracing::info!("Throughput: {throughput_kib_s:.2} KiB/s");
 
+    // Timing stats (only if we have successful submissions)
+    if stats.success_count > 0 {
+        let avg_duration_ms = stats.total_duration_ms / stats.success_count;
+        tracing::info!(
+            "Submission timing - min: {}ms, max: {}ms, avg: {}ms",
+            stats.min_duration_ms,
+            stats.max_duration_ms,
+            avg_duration_ms
+        );
+    }
+
     shutdown_sender.send(()).unwrap();
 }
