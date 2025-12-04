@@ -7,8 +7,10 @@ use tokio::sync::{mpsc, Semaphore};
 use tokio::task::JoinSet;
 
 /// Maximum number of concurrent in-flight blob submissions.
-/// With 6 MiB blobs, this caps memory at ~60 MiB for blob data alone.
-const MAX_CONCURRENT_SUBMISSIONS: usize = 10;
+/// This is a high safety cap; the timeout (120s) is the primary control.
+const MAX_CONCURRENT_SUBMISSIONS: usize = 10_000;
+
+const TOTAL_SUBMISSION_TIMEOUT: Duration = Duration::from_secs(120);
 
 #[derive(Debug, Default)]
 pub struct Stats {
@@ -79,7 +81,12 @@ async fn submit_blob(
     blob_size_max: usize,
 ) -> anyhow::Result<usize> {
     let blob = generate_random_blob(blob_size_min, blob_size_max);
-    let receipt = celestia_service.send_transaction(&blob).await.await??;
+    let receiver = tokio::time::timeout(
+        TOTAL_SUBMISSION_TIMEOUT,
+        celestia_service.send_transaction(&blob),
+    )
+    .await?;
+    let receipt = tokio::time::timeout(TOTAL_SUBMISSION_TIMEOUT, receiver).await???;
     tracing::debug!(?receipt, "Receipt from sov-celestia-adapter");
     Ok(blob.len())
 }
