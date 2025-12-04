@@ -3,12 +3,8 @@ use std::time::{Duration, Instant};
 
 use rand::Rng;
 use sov_celestia_adapter::{CelestiaService, DaService};
-use tokio::sync::{mpsc, Semaphore};
+use tokio::sync::mpsc;
 use tokio::task::JoinSet;
-
-/// Maximum number of concurrent in-flight blob submissions.
-/// Memory budget: 1000 × 6 MiB = ~6 GB blob data, safe on 16 GB droplet.
-const MAX_CONCURRENT_SUBMISSIONS: usize = 1_000;
 
 #[derive(Debug)]
 pub struct Stats {
@@ -43,21 +39,14 @@ pub async fn run_submission_loop(
     blob_size_min: usize,
     blob_size_max: usize,
 ) {
-    tracing::info!(
-        max_concurrent = MAX_CONCURRENT_SUBMISSIONS,
-        "Starting submission loop"
-    );
+    tracing::info!("Starting submission loop (no task cap)");
     let mut submission_tasks = JoinSet::new();
     let mut interval = tokio::time::interval(Duration::from_secs(6));
-    let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_SUBMISSIONS));
 
     while Instant::now() < finish_time {
         interval.tick().await;
 
-        // Wait for a permit before spawning a new task.
-        // This blocks if we already have MAX_CONCURRENT_SUBMISSIONS in flight.
-        let permit = semaphore.clone().acquire_owned().await.unwrap();
-        let in_flight = MAX_CONCURRENT_SUBMISSIONS - semaphore.available_permits();
+        let in_flight = submission_tasks.len();
         tracing::info!(in_flight, "Kicking off new submission task");
 
         let service = celestia_service.clone();
@@ -66,8 +55,6 @@ pub async fn run_submission_loop(
         submission_tasks.spawn(async move {
             let result = submit_blob(&service, blob_size_min, blob_size_max).await;
             let _ = tx.send(result);
-            // Permit is dropped here, releasing a slot for the next submission
-            drop(permit);
         });
 
         // Clean up completed tasks to free memory
