@@ -71,6 +71,62 @@ pub async fn run_submission_loop(
     while submission_tasks.join_next().await.is_some() {}
 }
 
+/// Batch submission loop - submits multiple blobs in a single transaction.
+/// Waits for each batch to succeed before starting the next.
+pub async fn run_batch_submission_loop(
+    celestia_service: Arc<CelestiaService>,
+    finish_time: Instant,
+    result_tx: mpsc::UnboundedSender<SubmissionResult>,
+    blob_size_min: usize,
+    blob_size_max: usize,
+    blobs_per_batch: usize,
+) {
+    tracing::info!(blobs_per_batch, blob_size_min, blob_size_max, "Starting batch submission loop");
+
+    let mut batch_count = 0u64;
+
+    while Instant::now() < finish_time {
+        batch_count += 1;
+
+        // Generate batch of blobs
+        let blobs: Vec<Vec<u8>> = (0..blobs_per_batch)
+            .map(|_| generate_random_blob(blob_size_min, blob_size_max))
+            .collect();
+        let blob_refs: Vec<&[u8]> = blobs.iter().map(|b| b.as_slice()).collect();
+        let total_bytes: usize = blobs.iter().map(|b| b.len()).sum();
+
+        tracing::info!(
+            batch = batch_count,
+            blobs = blobs_per_batch,
+            total_bytes,
+            "Submitting batch"
+        );
+
+        let start = Instant::now();
+
+        // Submit batch - will retry until success
+        match celestia_service.send_batch_transaction(&blob_refs).await {
+            Ok(receipts) => {
+                let duration = start.elapsed();
+                tracing::info!(
+                    batch = batch_count,
+                    blobs = receipts.len(),
+                    total_bytes,
+                    duration_ms = duration.as_millis(),
+                    "Batch succeeded"
+                );
+                let _ = result_tx.send(Ok((total_bytes, duration)));
+            }
+            Err(e) => {
+                tracing::error!(batch = batch_count, error = %e, "Batch failed permanently");
+                let _ = result_tx.send(Err(e));
+            }
+        }
+    }
+
+    drop(result_tx);
+}
+
 fn generate_random_blob(blob_size_min: usize, blob_size_max: usize) -> Vec<u8> {
     let mut rng = rand::thread_rng();
     let size = rng.gen_range(blob_size_min..=blob_size_max);

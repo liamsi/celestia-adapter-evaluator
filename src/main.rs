@@ -3,7 +3,7 @@ mod core;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use crate::core::{run_stats_collector, run_submission_loop};
+use crate::core::{run_batch_submission_loop, run_stats_collector, run_submission_loop};
 use clap::Parser;
 use sov_celestia_adapter::{CelestiaConfig, MonitoringConfig, init_metrics_tracker};
 use tokio::sync::mpsc;
@@ -39,6 +39,11 @@ struct Args {
 
     #[arg(long, default_value_t = 6 * 1024 * 1024)]
     blob_size_max: usize,
+
+    /// Number of blobs to submit per transaction (batch mode).
+    /// Use 1 for single-blob mode (default), >1 for batch mode.
+    #[arg(long, default_value_t = 1)]
+    blobs_per_batch: usize,
 }
 
 fn validate_namespace(s: &str) -> Result<String, String> {
@@ -85,17 +90,25 @@ async fn main() {
     tracing::info!("Namespace: {}", args.namespace);
     tracing::info!("RPC Endpoint: {}", args.rpc_endpoint);
     tracing::info!("gRPC Endpoint: {}", args.grpc_endpoint);
-    // println!("Signer Private Key: {}", args.signer_private_key);
     tracing::info!("Run for seconds: {}", args.run_for_seconds);
+    tracing::info!("Blobs per batch: {}", args.blobs_per_batch);
 
     let mut celestia_config = CelestiaConfig::minimal(args.rpc_endpoint)
         .with_submission(args.grpc_endpoint, args.signer_private_key);
     celestia_config.rpc_auth_token = args.rpc_token;
     celestia_config.grpc_auth_token = args.grpc_token;
-    // Reduce backoff retries to fail faster
-    celestia_config.backoff_max_times = 3;
-    celestia_config.backoff_min_delay_ms = 1_000;
-    celestia_config.backoff_max_delay_ms = 4_000;
+
+    if args.blobs_per_batch > 1 {
+        // Batch mode: use longer retries since we want to wait for success
+        celestia_config.backoff_max_times = 100;
+        celestia_config.backoff_min_delay_ms = 5_000;
+        celestia_config.backoff_max_delay_ms = 30_000;
+    } else {
+        // Single blob mode: fail faster
+        celestia_config.backoff_max_times = 3;
+        celestia_config.backoff_min_delay_ms = 1_000;
+        celestia_config.backoff_max_delay_ms = 4_000;
+    }
 
     let batch_namespace =
         sov_celestia_adapter::types::Namespace::new_v0(args.namespace.as_bytes()).unwrap();
@@ -114,13 +127,26 @@ async fn main() {
     let (result_tx, result_rx) = mpsc::unbounded_channel();
 
     let start = std::time::Instant::now();
-    let submission_handle = tokio::spawn(run_submission_loop(
-        celestia_service,
-        finish_time,
-        result_tx,
-        args.blob_size_min,
-        args.blob_size_max,
-    ));
+    let submission_handle = if args.blobs_per_batch > 1 {
+        // Batch mode
+        tokio::spawn(run_batch_submission_loop(
+            celestia_service,
+            finish_time,
+            result_tx,
+            args.blob_size_min,
+            args.blob_size_max,
+            args.blobs_per_batch,
+        ))
+    } else {
+        // Single blob mode (original behavior)
+        tokio::spawn(run_submission_loop(
+            celestia_service,
+            finish_time,
+            result_tx,
+            args.blob_size_min,
+            args.blob_size_max,
+        ))
+    };
     let stats_handle = tokio::spawn(run_stats_collector(result_rx));
 
     submission_handle.await.unwrap();
