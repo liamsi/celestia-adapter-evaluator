@@ -3026,7 +3026,7 @@ dependencies = [
 [[package]]
 name = "sov-celestia-adapter"
 version = "0.3.0"
-source = "git+https://github.com/Sovereign-Labs/sovereign-sdk.git?branch=dev#59864c9b7f351547d8a25f0547e5113f33eb3d50"
+source = "git+https://github.com/liamsi/sovereign-sdk.git?branch=ismail%2Fbatch-blob-submission#913afa37aef0a4a6d1418d451e33d93178c144c3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3058,7 +3058,7 @@ dependencies = [
 [[package]]
 name = "sov-metrics"
 version = "0.3.0"
-source = "git+https://github.com/Sovereign-Labs/sovereign-sdk.git?branch=dev#59864c9b7f351547d8a25f0547e5113f33eb3d50"
+source = "git+https://github.com/liamsi/sovereign-sdk.git?branch=ismail%2Fbatch-blob-submission#913afa37aef0a4a6d1418d451e33d93178c144c3"
 dependencies = [
  "anyhow",
  "bincode",
@@ -3078,7 +3078,7 @@ dependencies = [
 [[package]]
 name = "sov-modules-macros"
 version = "0.3.0"
-source = "git+https://github.com/Sovereign-Labs/sovereign-sdk.git?branch=dev#59864c9b7f351547d8a25f0547e5113f33eb3d50"
+source = "git+https://github.com/liamsi/sovereign-sdk.git?branch=ismail%2Fbatch-blob-submission#913afa37aef0a4a6d1418d451e33d93178c144c3"
 dependencies = [
  "anyhow",
  "bech32",
@@ -3100,7 +3100,7 @@ dependencies = [
 [[package]]
 name = "sov-rollup-interface"
 version = "0.3.0"
-source = "git+https://github.com/Sovereign-Labs/sovereign-sdk.git?branch=dev#59864c9b7f351547d8a25f0547e5113f33eb3d50"
+source = "git+https://github.com/liamsi/sovereign-sdk.git?branch=ismail%2Fbatch-blob-submission#913afa37aef0a4a6d1418d451e33d93178c144c3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3124,7 +3124,7 @@ dependencies = [
 [[package]]
 name = "sov-universal-wallet"
 version = "0.3.0"
-source = "git+https://github.com/Sovereign-Labs/sovereign-sdk.git?branch=dev#59864c9b7f351547d8a25f0547e5113f33eb3d50"
+source = "git+https://github.com/liamsi/sovereign-sdk.git?branch=ismail%2Fbatch-blob-submission#913afa37aef0a4a6d1418d451e33d93178c144c3"
 dependencies = [
  "bech32",
  "borsh",
@@ -3140,7 +3140,7 @@ dependencies = [
 [[package]]
 name = "sov-universal-wallet-macro-helpers"
 version = "0.3.0"
-source = "git+https://github.com/Sovereign-Labs/sovereign-sdk.git?branch=dev#59864c9b7f351547d8a25f0547e5113f33eb3d50"
+source = "git+https://github.com/liamsi/sovereign-sdk.git?branch=ismail%2Fbatch-blob-submission#913afa37aef0a4a6d1418d451e33d93178c144c3"
 dependencies = [
  "bech32",
  "borsh",
@@ -3157,7 +3157,7 @@ dependencies = [
 [[package]]
 name = "sov-universal-wallet-macros"
 version = "0.3.0"
-source = "git+https://github.com/Sovereign-Labs/sovereign-sdk.git?branch=dev#59864c9b7f351547d8a25f0547e5113f33eb3d50"
+source = "git+https://github.com/liamsi/sovereign-sdk.git?branch=ismail%2Fbatch-blob-submission#913afa37aef0a4a6d1418d451e33d93178c144c3"
 dependencies = [
  "proc-macro2",
  "sov-universal-wallet-macro-helpers",

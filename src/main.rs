@@ -3,7 +3,7 @@ mod core;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use crate::core::{run_stats_collector, run_submission_loop};
+use crate::core::{run_sequential_submission_loop, run_stats_collector};
 use clap::Parser;
 use sov_celestia_adapter::{CelestiaConfig, MonitoringConfig, init_metrics_tracker};
 use tokio::sync::mpsc;
@@ -11,7 +11,7 @@ use tracing_subscriber::EnvFilter;
 
 #[derive(Parser, Debug)]
 #[command(name = "celestia-adapter-evaluator")]
-#[command(about = "Celestia Adapter Evaluator", long_about = None)]
+#[command(about = "Celestia Adapter Evaluator - Sequential Max Throughput", long_about = None)]
 struct Args {
     #[arg(long, value_parser = validate_namespace)]
     namespace: String,
@@ -34,10 +34,12 @@ struct Args {
     #[arg(long)]
     run_for_seconds: u64,
 
-    #[arg(long, default_value_t = 6 * 1024 * 1024)]
+    /// Minimum blob size in bytes (default ~7 MiB for max throughput)
+    #[arg(long, default_value_t = 7 * 1024 * 1024)]
     blob_size_min: usize,
 
-    #[arg(long, default_value_t = 6 * 1024 * 1024)]
+    /// Maximum blob size in bytes (default ~7 MiB for max throughput)
+    #[arg(long, default_value_t = 7 * 1024 * 1024)]
     blob_size_max: usize,
 }
 
@@ -82,20 +84,22 @@ async fn main() {
     let monitoring_config = MonitoringConfig::standard();
     init_metrics_tracker(&monitoring_config, shutdown_receiver);
 
+    tracing::info!("=== Sequential Max Throughput Mode ===");
     tracing::info!("Namespace: {}", args.namespace);
     tracing::info!("RPC Endpoint: {}", args.rpc_endpoint);
     tracing::info!("gRPC Endpoint: {}", args.grpc_endpoint);
-    // println!("Signer Private Key: {}", args.signer_private_key);
     tracing::info!("Run for seconds: {}", args.run_for_seconds);
+    tracing::info!("Blob size: {} - {} bytes", args.blob_size_min, args.blob_size_max);
 
     let mut celestia_config = CelestiaConfig::minimal(args.rpc_endpoint)
         .with_submission(args.grpc_endpoint, args.signer_private_key);
     celestia_config.rpc_auth_token = args.rpc_token;
     celestia_config.grpc_auth_token = args.grpc_token;
-    // Reduce backoff retries to fail faster
-    celestia_config.backoff_max_times = 3;
-    celestia_config.backoff_min_delay_ms = 1_000;
-    celestia_config.backoff_max_delay_ms = 4_000;
+
+    // Use longer retries - we want to wait for success, not fail fast
+    celestia_config.backoff_max_times = 100;
+    celestia_config.backoff_min_delay_ms = 5_000;
+    celestia_config.backoff_max_delay_ms = 30_000;
 
     let batch_namespace =
         sov_celestia_adapter::types::Namespace::new_v0(args.namespace.as_bytes()).unwrap();
@@ -114,7 +118,7 @@ async fn main() {
     let (result_tx, result_rx) = mpsc::unbounded_channel();
 
     let start = std::time::Instant::now();
-    let submission_handle = tokio::spawn(run_submission_loop(
+    let submission_handle = tokio::spawn(run_sequential_submission_loop(
         celestia_service,
         finish_time,
         result_tx,
@@ -129,16 +133,20 @@ async fn main() {
     tracing::info!("=== Final Stats ===");
     tracing::info!("Running time: {:.2?}", start.elapsed());
     let total = stats.success_count + stats.error_count;
-    let success_percent = (stats.success_count as f64 / total as f64) * 100.0;
-    let error_percent = (stats.error_count as f64 / total as f64) * 100.0;
-    tracing::info!(
-        "Successful submission: {} ({success_percent:.2}%)",
-        stats.success_count
-    );
-    tracing::info!(
-        "Failed submission: {} ({error_percent:.2}%)",
-        stats.error_count
-    );
+    if total > 0 {
+        let success_percent = (stats.success_count as f64 / total as f64) * 100.0;
+        let error_percent = (stats.error_count as f64 / total as f64) * 100.0;
+        tracing::info!(
+            "Successful submissions: {} ({success_percent:.2}%)",
+            stats.success_count
+        );
+        tracing::info!(
+            "Failed submissions: {} ({error_percent:.2}%)",
+            stats.error_count
+        );
+    } else {
+        tracing::info!("No submissions completed");
+    }
     let throughput_kib_s = stats.successful_bytes as f64 / start.elapsed().as_secs_f64() / 1024.0;
     tracing::info!("Throughput: {throughput_kib_s:.2} KiB/s");
 
