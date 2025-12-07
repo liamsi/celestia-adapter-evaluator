@@ -96,10 +96,11 @@ async fn main() {
     celestia_config.rpc_auth_token = args.rpc_token;
     celestia_config.grpc_auth_token = args.grpc_token;
 
-    // Use longer retries - we want to wait for success, not fail fast
+    // Tuned retry params for faster recovery from transient gRPC errors
     celestia_config.backoff_max_times = 100;
-    celestia_config.backoff_min_delay_ms = 5_000;
-    celestia_config.backoff_max_delay_ms = 30_000;
+    celestia_config.backoff_min_delay_ms = 2_000;
+    celestia_config.backoff_max_delay_ms = 15_000;
+    celestia_config.backoff_factor = 1.5;
 
     let batch_namespace =
         sov_celestia_adapter::types::Namespace::new_v0(args.namespace.as_bytes()).unwrap();
